@@ -1,0 +1,6 @@
+click>=8.0
+colorama>=0.4
+dnspython>=2.0
+python-whois>=0.8
+requests>=2.28
+urllib3>=1.26
