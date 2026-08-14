@@ -1,4 +1,4 @@
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20|%20Windows%20|%20macOS-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
@@ -21,9 +21,9 @@ Web reconnaissance tool by [expect-us](https://github.com/hz8n/expect-us)
 |--------|-------------|
 | `--dns` | DNS record enumeration (A, AAAA, MX, NS, TXT, CNAME, SOA) |
 | `--whois` | WHOIS lookup (registrar, dates, name servers, org) |
-| `--http` | HTTP headers analysis + security headers audit |
-| `--ports` | Common port scan (20 ports, multithreaded) |
-| `--subs` | Subdomain enumeration (60+ wordlist, multithreaded) |
+| `--http` | HTTP headers analysis + security header value audit |
+| `--ports` | Common port scan across all resolved addresses |
+| `--subs` | DNS-first subdomain enumeration with wildcard filtering and HTTPS probes |
 | `--all` | Run all modules |
 
 ---
@@ -33,7 +33,7 @@ Web reconnaissance tool by [expect-us](https://github.com/hz8n/expect-us)
 ```bash
 git clone https://github.com/hz8n/spectre.git
 cd spectre
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ---
@@ -99,6 +99,18 @@ spectre/
     └── subdomain_enum.py   # Subdomain enumeration
 ```
 
+Subdomain results distinguish DNS discovery from HTTPS availability. Random
+nonexistent labels are resolved first; candidates matching wildcard DNS answers
+are reported and excluded from the discovery total.
+
+## Tests
+
+The test suite uses mocks and loopback sockets only:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ---
 
 ## Legal
@@ -108,7 +120,7 @@ This tool is released under the MIT License for **educational and authorized sec
 ---
 ---
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20|%20Windows%20|%20macOS-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
@@ -143,7 +155,7 @@ This tool is released under the MIT License for **educational and authorized sec
 ```bash
 git clone https://github.com/hz8n/spectre.git
 cd spectre
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ---

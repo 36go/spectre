@@ -5,11 +5,9 @@ by expect-us | For authorized targets only.
 """
 
 import click
-import sys
-from colorama import Fore, Style, init
-from modules import dns_enum, whois_lookup, http_analyzer, port_scanner, subdomain_enum
+from colorama import Fore, Style
 
-init(autoreset=True)
+from modules import dns_enum, http_analyzer, port_scanner, subdomain_enum, whois_lookup
 
 BANNER = f"""
 {Fore.GREEN}
@@ -32,11 +30,11 @@ def cli():
 @cli.command()
 @click.argument("target")
 @click.option("--all", "run_all", is_flag=True, help="Run all modules")
-@click.option("--dns",   is_flag=True, help="DNS record enumeration")
+@click.option("--dns", is_flag=True, help="DNS record enumeration")
 @click.option("--whois", is_flag=True, help="WHOIS lookup")
-@click.option("--http",  is_flag=True, help="HTTP headers + security headers audit")
+@click.option("--http", is_flag=True, help="HTTP headers + security headers audit")
 @click.option("--ports", is_flag=True, help="Common port scan")
-@click.option("--subs",  is_flag=True, help="Subdomain enumeration")
+@click.option("--subs", is_flag=True, help="Subdomain enumeration")
 def scan(target, run_all, dns, whois, http, ports, subs):
     """Scan a target domain or IP.
 
@@ -51,7 +49,7 @@ def scan(target, run_all, dns, whois, http, ports, subs):
             f"{Fore.YELLOW}[!] No module selected. Use --all or pick one. "
             f"Run 'spectre scan --help' for options.{Style.RESET_ALL}"
         )
-        sys.exit(1)
+        raise click.exceptions.Exit(1)
 
     if run_all or dns:
         dns_enum.run(target)

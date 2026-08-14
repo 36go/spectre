@@ -1,5 +1,6 @@
 import whois
 from colorama import Fore, Style
+from whois.exceptions import PywhoisError
 
 
 def run(target):
@@ -22,8 +23,8 @@ def run(target):
             if not val:
                 continue
             if isinstance(val, list):
-                val = val[0] if val else None
+                val = ", ".join(str(item) for item in val if item)
             if val:
                 print(f"  {Fore.CYAN}{key:<14}{Style.RESET_ALL} {val}")
-    except Exception as e:
+    except (OSError, PywhoisError, ValueError) as e:
         print(f"  {Fore.RED}Error: {e}{Style.RESET_ALL}")

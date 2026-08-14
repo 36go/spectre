@@ -1,3 +1,4 @@
+import dns.exception
 import dns.resolver
 from colorama import Fore, Style
 
@@ -15,7 +16,7 @@ def run(target):
             for rdata in answers:
                 print(f"  {Fore.CYAN}{rtype:<8}{Style.RESET_ALL} {rdata}")
                 found = True
-        except Exception:
+        except dns.exception.DNSException:
             pass
 
     if not found:

@@ -1,9 +1,10 @@
-import requests
+import secrets
+import socket
 from concurrent.futures import ThreadPoolExecutor
-from colorama import Fore, Style
-import urllib3
+from dataclasses import dataclass
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import requests
+from colorama import Fore, Style
 
 WORDLIST = [
     "www", "mail", "ftp", "smtp", "pop", "imap", "ns1", "ns2", "ns3", "ns4",
@@ -19,20 +20,60 @@ WORDLIST = [
 ]
 
 
-def _check(args):
-    sub, domain = args
-    url = f"https://{sub}.{domain}"
+@dataclass(frozen=True)
+class ProbeResult:
+    subdomain: str
+    addresses: tuple[str, ...]
+    status: int | None = None
+    error: str | None = None
+    wildcard: bool = False
+
+
+def _resolve_addresses(host):
     try:
-        r = requests.get(
-            url,
-            timeout=4,
+        answers = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return frozenset()
+    return frozenset(answer[4][0] for answer in answers)
+
+
+def _detect_wildcard_addresses(domain, samples=3):
+    addresses = set()
+    for _ in range(samples):
+        label = f"spectre-{secrets.token_hex(8)}"
+        addresses.update(_resolve_addresses(f"{label}.{domain}"))
+    return frozenset(addresses)
+
+
+def _check(args):
+    sub, domain, wildcard_addresses = args
+    host = f"{sub}.{domain}"
+    addresses = _resolve_addresses(host)
+    if not addresses:
+        return None
+    sorted_addresses = tuple(sorted(addresses))
+    if wildcard_addresses and addresses.issubset(wildcard_addresses):
+        return ProbeResult(sub, sorted_addresses, wildcard=True)
+
+    try:
+        response = requests.get(
+            f"https://{host}",
+            timeout=(3, 4),
             allow_redirects=True,
-            verify=False,
             headers={"User-Agent": "Mozilla/5.0 (compatible; spectre/1.0)"},
         )
-        return (sub, r.status_code, r.url)
-    except Exception:
-        return None
+        try:
+            return ProbeResult(sub, sorted_addresses, status=response.status_code)
+        finally:
+            response.close()
+    except requests.exceptions.SSLError:
+        return ProbeResult(sub, sorted_addresses, error="TLS verification failed")
+    except requests.exceptions.Timeout:
+        return ProbeResult(sub, sorted_addresses, error="HTTPS timed out")
+    except requests.exceptions.ConnectionError:
+        return ProbeResult(sub, sorted_addresses, error="HTTPS connection failed")
+    except requests.exceptions.RequestException:
+        return ProbeResult(sub, sorted_addresses, error="HTTPS probe failed")
 
 
 def run(target):
@@ -40,19 +81,49 @@ def run(target):
     print(f"{Fore.GREEN}{'─' * 52}{Style.RESET_ALL}")
     print(f"  {Fore.YELLOW}Checking {len(WORDLIST)} subdomains...{Style.RESET_ALL}\n")
 
-    found = []
+    wildcard_addresses = _detect_wildcard_addresses(target)
+    if wildcard_addresses:
+        print(
+            f"  {Fore.YELLOW}Wildcard DNS detected; matching candidates will be "
+            f"excluded.{Style.RESET_ALL}\n"
+        )
+
     with ThreadPoolExecutor(max_workers=30) as executor:
-        results = list(executor.map(_check, [(s, target) for s in WORDLIST]))
+        results = list(
+            executor.map(
+                _check,
+                [(sub, target, wildcard_addresses) for sub in WORDLIST],
+            )
+        )
 
+    found = []
+    wildcard_matches = 0
     for result in results:
-        if result:
-            sub, status, url = result
-            color = Fore.GREEN if status < 400 else Fore.YELLOW
-            print(f"  {color}[{status}]{Style.RESET_ALL}  {sub}.{target}")
-            found.append(sub)
+        if result is None:
+            continue
+        host = f"{result.subdomain}.{target}"
+        addresses = ", ".join(result.addresses)
+        if result.wildcard:
+            wildcard_matches += 1
+            print(f"  {Fore.YELLOW}[WILDCARD]{Style.RESET_ALL} {host} -> {addresses}")
+            continue
 
-    print(
-        f"\n  {Fore.GREEN}Found {len(found)} subdomain(s).{Style.RESET_ALL}"
-        if found else
-        f"\n  {Fore.YELLOW}No subdomains found.{Style.RESET_ALL}"
-    )
+        found.append(result.subdomain)
+        if result.status is not None:
+            color = Fore.GREEN if result.status < 400 else Fore.YELLOW
+            print(
+                f"  {Fore.CYAN}[DNS]{Style.RESET_ALL} {host} -> {addresses}  "
+                f"{color}[HTTPS {result.status}]{Style.RESET_ALL}"
+            )
+        else:
+            print(
+                f"  {Fore.CYAN}[DNS]{Style.RESET_ALL} {host} -> {addresses}  "
+                f"{Fore.YELLOW}[{result.error}]{Style.RESET_ALL}"
+            )
+
+    if found:
+        print(f"\n  {Fore.GREEN}DNS-discovered {len(found)} subdomain(s).{Style.RESET_ALL}")
+    else:
+        print(f"\n  {Fore.YELLOW}No non-wildcard subdomains found.{Style.RESET_ALL}")
+    if wildcard_matches:
+        print(f"  {Fore.YELLOW}Excluded {wildcard_matches} wildcard match(es).{Style.RESET_ALL}")
